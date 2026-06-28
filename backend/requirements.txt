@@ -20,8 +20,6 @@ python-multipart==0.0.9
 
 # Configuração
 pydantic==2.7.4
-pydantic-settings==2.3.4
-python-dotenv==1.0.1
 
 # HTTP client
 httpx==0.27.0

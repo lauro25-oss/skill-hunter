@@ -1,23 +1,11 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+import os
+from pydantic import BaseModel
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore",
-    )
-
-    # Banco de dados (Railway PostgreSQL)
+class Settings(BaseModel):
     database_url: str
-
-    # IA — Groq (gratuito)
     groq_api_key: str = ""
     groq_model: str = "llama-3.1-8b-instant"
-
-    # Aplicação
     environment: str = "development"
     cors_origins: str = "http://localhost:5173"
 
@@ -34,4 +22,10 @@ class Settings(BaseSettings):
         return [o.strip() for o in self.cors_origins.split(",")]
 
 
-settings = Settings()
+settings = Settings(
+    database_url=os.environ.get("DATABASE_URL", ""),
+    groq_api_key=os.environ.get("GROQ_API_KEY", ""),
+    groq_model=os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant"),
+    environment=os.environ.get("ENVIRONMENT", "development"),
+    cors_origins=os.environ.get("CORS_ORIGINS", "http://localhost:5173"),
+)
