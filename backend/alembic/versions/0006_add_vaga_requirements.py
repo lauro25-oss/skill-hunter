@@ -15,8 +15,13 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('vagas', sa.Column('skills_obrigatorias',  JSONB,        nullable=False, server_default='[]'))
-    op.add_column('vagas', sa.Column('anos_experiencia_min', sa.Float(),   nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_cols = [c["name"] for c in inspector.get_columns("vagas")]
+    if "skills_obrigatorias" not in existing_cols:
+        op.add_column('vagas', sa.Column('skills_obrigatorias', JSONB, nullable=False, server_default='[]'))
+    if "anos_experiencia_min" not in existing_cols:
+        op.add_column('vagas', sa.Column('anos_experiencia_min', sa.Float(), nullable=True))
 
 
 def downgrade():
