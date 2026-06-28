@@ -117,6 +117,21 @@ export const deleteCandidate = (id: string) =>
 export const reparse = (id: string) =>
   api.post<CandidateOut>(`/candidates/${id}/reparse`).then(r => r.data)
 
+export const anonimizarCandidato = (id: string) =>
+  api.post(`/candidates/${id}/anonimizar`).then(r => r.data)
+
+export const exportExcel = async () => {
+  const res = await api.get('/candidates/export/excel', { responseType: 'blob' })
+  const url = URL.createObjectURL(new Blob([res.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `candidatos_skill_hunter_${new Date().toISOString().split('T')[0]}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export interface Stats {
   total: number
   novo: number

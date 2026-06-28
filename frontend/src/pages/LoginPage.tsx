@@ -71,6 +71,13 @@ export default function LoginPage() {
             {loading ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
+
+        <p className="text-center text-[10px] text-gray-300 mt-6">
+          <a href="/privacidade" className="hover:text-gray-400 underline transition-colors">
+            Política de Privacidade
+          </a>
+          {' · '}LGPD · 2026
+        </p>
       </div>
     </div>
   )

@@ -1,12 +1,13 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.database import get_db
 from app.models.portal import PortalLink
 from app.models.candidate import Candidate
 from app.schemas.portal import PortalCreate, PortalOut, CandidatePortalOut, VotePayload
 from app.auth import get_current_user
+from app.services.email import enviar_email_shortlist_criada
 
 router = APIRouter(tags=["Portal do Cliente"])
 
@@ -25,6 +26,18 @@ async def create_portal(payload: PortalCreate, db: AsyncSession = Depends(get_db
     db.add(portal)
     await db.commit()
     await db.refresh(portal)
+
+    # Conta candidatos na shortlist para incluir no e-mail
+    try:
+        q = select(func.count(Candidate.id)).where(Candidate.em_shortlist == True)
+        if portal.vaga_origem:
+            q = q.where(Candidate.vaga_origem == portal.vaga_origem)
+        total_res = await db.execute(q)
+        total = total_res.scalar() or 0
+        await enviar_email_shortlist_criada(portal.label, total, portal.token)
+    except Exception:
+        pass
+
     return portal
 
 

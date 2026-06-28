@@ -61,6 +61,9 @@ class Candidate(Base):
     shortlist_token    = Column(String(64), index=True, unique=True, nullable=True)
     aprovado_cliente   = Column(Boolean, nullable=True)  # None = pendente
 
+    # ── LGPD ────────────────────────────────────────────────
+    anonimizado        = Column(Boolean, default=False, nullable=False, server_default="false")
+
     # ── Metadados ───────────────────────────────────────────
     criado_em          = Column(DateTime(timezone=True), server_default=func.now())
     atualizado_em      = Column(

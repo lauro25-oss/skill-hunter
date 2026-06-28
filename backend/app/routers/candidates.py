@@ -1,12 +1,20 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+import io
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.database import get_db
 from app.models.candidate import Candidate, CandidateStatus
 from app.schemas.candidate import CandidateOut, CandidateUpdate
 from app.services import parser, storage
 from app.services.score import calcular_score
+from app.services.email import enviar_email_novo_candidato, enviar_email_status_alterado
 from app.auth import get_current_user
 
 router = APIRouter(
@@ -14,6 +22,7 @@ router = APIRouter(
     tags=["Candidatos"],
     dependencies=[Depends(get_current_user)],
 )
+limiter = Limiter(key_func=get_remote_address)
 
 ALLOWED_TYPES = {
     "application/pdf",
@@ -29,7 +38,9 @@ MAX_SIZE_MB = 10
 # ── Upload em lote ───────────────────────────────────────────
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 async def upload_curriculos(
+    request: Request,
     files: list[UploadFile] = File(..., description="PDFs ou DOCX dos candidatos"),
     vaga_origem: str | None = Query(None, description="Nome da vaga para rastreamento"),
     db: AsyncSession = Depends(get_db),
@@ -88,6 +99,12 @@ async def upload_curriculos(
             await db.commit()
             await db.refresh(candidate)
             criados.append(CandidateOut.model_validate(candidate))
+
+            # Notificação por e-mail (não bloqueia o fluxo em caso de falha)
+            try:
+                await enviar_email_novo_candidato(candidate.nome, file.filename, vaga_origem)
+            except Exception:
+                pass
 
         except Exception as exc:
             await db.rollback()
@@ -223,11 +240,114 @@ async def update_candidate(
     db: AsyncSession = Depends(get_db),
 ):
     c = await _get_or_404(candidate_id, db)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    dados = payload.model_dump(exclude_unset=True)
+    status_anterior = c.status
+
+    for field, value in dados.items():
         setattr(c, field, value)
     await db.commit()
     await db.refresh(c)
+
+    # E-mail ao mudar status
+    novo_status = dados.get("status")
+    if novo_status and novo_status != status_anterior:
+        try:
+            await enviar_email_status_alterado(c.nome, str(status_anterior), novo_status)
+        except Exception:
+            pass
+
     return CandidateOut.model_validate(c)
+
+
+# ── EXPORT EXCEL ─────────────────────────────────────────────
+
+@router.get("/export/excel")
+async def export_excel(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Candidate).order_by(Candidate.criado_em.desc())
+    )
+    candidates = result.scalars().all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Candidatos"
+
+    # Estilos
+    header_fill  = PatternFill("solid", fgColor="1D4ED8")
+    header_font  = Font(color="FFFFFF", bold=True, size=10)
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_border  = Border(
+        bottom=Side(style="thin", color="E5E7EB"),
+        right=Side(style="thin", color="E5E7EB"),
+    )
+    alt_fill = PatternFill("solid", fgColor="EFF6FF")
+
+    headers = [
+        "Nome", "Cargo Atual", "Status", "Localização",
+        "Exp. (anos)", "Score", "Hard Skills", "Shortlist",
+        "Avaliação Cliente", "Vaga", "E-mail", "Telefone", "Adicionado",
+    ]
+
+    col_widths = [28, 22, 14, 20, 12, 10, 40, 12, 18, 20, 28, 16, 14]
+
+    for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
+        cell = ws.cell(row=1, column=ci, value=h)
+        cell.font  = header_font
+        cell.fill  = header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+        ws.column_dimensions[get_column_letter(ci)].width = w
+
+    ws.row_dimensions[1].height = 28
+
+    STATUS_LABELS = {
+        "novo": "Novo", "em_triagem": "Em triagem", "shortlist": "Shortlist",
+        "aprovado": "Aprovado", "rejeitado": "Rejeitado", "contratado": "Contratado",
+    }
+
+    for ri, c in enumerate(candidates, 2):
+        aprovacao = (
+            "Aprovado" if c.aprovado_cliente is True
+            else "Reprovado" if c.aprovado_cliente is False
+            else "Pendente"
+        )
+        row_data = [
+            c.nome,
+            c.cargo_atual or "",
+            STATUS_LABELS.get(c.status.value if hasattr(c.status, "value") else str(c.status), str(c.status)),
+            c.localizacao or "",
+            c.anos_experiencia or "",
+            round(c.score_aderencia) if c.score_aderencia is not None else "",
+            "; ".join(c.hard_skills or []),
+            "Sim" if c.em_shortlist else "Não",
+            aprovacao,
+            c.vaga_origem or "",
+            c.email or "",
+            c.telefone or "",
+            c.criado_em.strftime("%d/%m/%Y") if c.criado_em else "",
+        ]
+        fill = alt_fill if ri % 2 == 0 else None
+        for ci, value in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.alignment = Alignment(vertical="center", wrap_text=(ci == 7))
+            cell.border = thin_border
+            if fill:
+                cell.fill = fill
+        ws.row_dimensions[ri].height = 18
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"candidatos_skill_hunter_{__import__('datetime').date.today()}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── DELETE ───────────────────────────────────────────────────
@@ -237,6 +357,27 @@ async def delete_candidate(candidate_id: uuid.UUID, db: AsyncSession = Depends(g
     c = await _get_or_404(candidate_id, db)
     await db.delete(c)
     await db.commit()
+
+
+# ── ANONIMIZAR (LGPD) ─────────────────────────────────────────
+
+@router.post("/{candidate_id}/anonimizar", status_code=status.HTTP_200_OK)
+async def anonimizar_candidato(candidate_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Remove dados pessoais do candidato mantendo estatísticas do pipeline (LGPD art. 18)."""
+    c = await _get_or_404(candidate_id, db)
+    c.nome           = "[Dados removidos - LGPD]"
+    c.email          = None
+    c.telefone       = None
+    c.localizacao    = None
+    c.texto_bruto    = None
+    c.resumo_ia      = None
+    c.arquivo_base64 = None
+    c.nome_arquivo   = None
+    c.gcs_url        = None
+    c.notas          = None
+    c.anonimizado    = True
+    await db.commit()
+    return {"ok": True, "mensagem": "Dados pessoais removidos conforme LGPD."}
 
 
 # ── Helper ───────────────────────────────────────────────────

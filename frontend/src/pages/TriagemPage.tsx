@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { searchCandidates, uploadCurriculos, getStats, getVagas, logout, type SearchQuery, type OrderBy } from '../api/client'
+import { searchCandidates, uploadCurriculos, getStats, getVagas, logout, exportExcel, type SearchQuery, type OrderBy } from '../api/client'
 import FilterPanel from '../components/FilterPanel'
 import CandidateGrid from '../components/CandidateGrid'
 import KanbanView from '../components/KanbanView'
 import CandidateDrawer from '../components/CandidateDrawer'
 import SearchBar from '../components/SearchBar'
 import { useToast } from '../components/Toast'
-import { Upload, LayoutGrid, Columns2, Download, LogOut } from 'lucide-react'
+import { Upload, LayoutGrid, Columns2, Download, FileSpreadsheet, LogOut } from 'lucide-react'
 import PortalManager from '../components/PortalManager'
 import clsx from 'clsx'
 
@@ -26,8 +26,9 @@ export default function TriagemPage() {
 
   const [query,      setQuery]      = useState<SearchQuery>({ q: '', page: 1, per_page: 20, order_by: 'criado_em' })
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [uploading,  setUploading]  = useState(false)
-  const [exporting,  setExporting]  = useState(false)
+  const [uploading,     setUploading]     = useState(false)
+  const [exporting,     setExporting]     = useState(false)
+  const [exportingXlsx, setExportingXlsx] = useState(false)
   const [view,       setView]       = useState<ViewMode>('cards')
   const [uploadVaga, setUploadVaga] = useState<string>('')
 
@@ -76,6 +77,18 @@ export default function TriagemPage() {
     await uploadMut.mutateAsync(files)
     setUploading(false)
     e.target.value = ''
+  }
+
+  const handleExportXlsx = async () => {
+    setExportingXlsx(true)
+    try {
+      await exportExcel()
+      toast('Excel exportado com sucesso')
+    } catch {
+      toast('Erro ao exportar Excel', 'error')
+    } finally {
+      setExportingXlsx(false)
+    }
   }
 
   const handleExport = async () => {
@@ -170,7 +183,7 @@ export default function TriagemPage() {
 
           <PortalManager />
 
-          {/* Exportar */}
+          {/* Exportar CSV */}
           <button
             onClick={handleExport}
             disabled={exporting}
@@ -179,6 +192,17 @@ export default function TriagemPage() {
           >
             <Download size={14} />
             <span className="hidden sm:inline">{exporting ? 'Exportando…' : 'CSV'}</span>
+          </button>
+
+          {/* Exportar Excel */}
+          <button
+            onClick={handleExportXlsx}
+            disabled={exportingXlsx}
+            title="Exportar Excel formatado"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors disabled:opacity-50"
+          >
+            <FileSpreadsheet size={14} />
+            <span className="hidden sm:inline">{exportingXlsx ? 'Exportando…' : 'Excel'}</span>
           </button>
 
           <div className="w-px h-6 bg-gray-100" />
