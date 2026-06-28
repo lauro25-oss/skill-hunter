@@ -88,11 +88,14 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
     if (cvUrl) { window.open(cvUrl, '_blank'); return }
     setLoadingCv(true)
     try {
-      const res = await api.get<{ url: string }>(`/candidates/${candidateId}/cv-url`)
-      setCvUrl(res.data.url)
-      window.open(res.data.url, '_blank')
+      const res = await api.get(`/candidates/${candidateId}/cv-url`, { responseType: 'blob' })
+      const contentType = (res.headers['content-type'] as string) || 'application/pdf'
+      const blob = new Blob([res.data], { type: contentType })
+      const url  = URL.createObjectURL(blob)
+      setCvUrl(url)
+      window.open(url, '_blank')
     } catch {
-      toast('Não foi possível gerar o link do CV', 'error')
+      toast('Não foi possível carregar o CV', 'error')
     } finally {
       setLoadingCv(false)
     }

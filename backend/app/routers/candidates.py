@@ -165,7 +165,7 @@ async def get_cv_url(
     candidate_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Retorna uma data URL (base64) para visualizar/baixar o CV original no browser."""
+    from fastapi.responses import Response
     c = await _get_or_404(candidate_id, db)
     if not c.arquivo_base64:
         raise HTTPException(404, "Este candidato não possui arquivo armazenado.")
@@ -176,8 +176,13 @@ async def get_cv_url(
     else:
         content_type = "application/pdf"
 
-    url = await storage.generate_signed_url(c.arquivo_base64, content_type)
-    return {"url": url}
+    file_bytes = storage.decode_file(c.arquivo_base64)
+    filename = c.nome_arquivo or "curriculo.pdf"
+    return Response(
+        content=file_bytes,
+        media_type=content_type,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 # ── Re-parsear CV existente ──────────────────────────────────
