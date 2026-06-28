@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, getCandidate, updateCandidate, reparse, type CandidateStatus } from '../api/client'
+import { api, getCandidate, updateCandidate, reparse, deleteCandidate, type CandidateStatus } from '../api/client'
 import { useToast } from './Toast'
-import { X, FileText, ExternalLink, Save, RefreshCw, CheckCircle, XCircle, Clock, Plus } from 'lucide-react'
+import { X, FileText, ExternalLink, Save, RefreshCw, CheckCircle, XCircle, Clock, Plus, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 
 const STATUSES: { value: CandidateStatus; label: string; color: string }[] = [
@@ -56,6 +56,19 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
       toast('CV reprocessado com sucesso')
     },
     onError: () => toast('Erro ao reprocessar CV', 'error'),
+  })
+
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const deleteMut = useMutation({
+    mutationFn: () => deleteCandidate(candidateId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['candidates'] })
+      qc.invalidateQueries({ queryKey: ['candidates-kanban'] })
+      toast('Candidato excluído', 'info')
+      onClose()
+    },
+    onError: () => toast('Erro ao excluir candidato', 'error'),
   })
 
   const saveNotes = async () => {
@@ -286,6 +299,38 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
               </section>
             )}
 
+          </div>
+        )}
+
+        {/* Footer — excluir candidato */}
+        {c && (
+          <div className="shrink-0 px-6 py-4 border-t border-gray-100">
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-red-600 flex-1">Confirmar exclusão de <strong>{c.nome}</strong>?</p>
+                <button
+                  onClick={() => deleteMut.mutate()}
+                  disabled={deleteMut.isPending}
+                  className="btn bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5"
+                >
+                  {deleteMut.isPending ? 'Excluindo…' : 'Confirmar'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="btn text-xs px-3 py-1.5 text-gray-500 hover:text-gray-700"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 transition-colors"
+              >
+                <Trash2 size={13} />
+                Excluir candidato
+              </button>
+            )}
           </div>
         )}
       </aside>
