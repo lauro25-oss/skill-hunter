@@ -72,10 +72,16 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-[10px] text-gray-300 mt-6">
-          <a href="/privacidade" className="hover:text-gray-400 underline transition-colors">
-            Política de Privacidade
+        <p className="text-center text-xs text-gray-400 mt-4">
+          <a href="/forgot-password" className="hover:text-gray-600 underline transition-colors">
+            Esqueci minha senha
           </a>
+        </p>
+
+        <p className="text-center text-[10px] text-gray-300 mt-4">
+          <a href="/termos" className="hover:text-gray-400 underline transition-colors">Termos de Uso</a>
+          {' · '}
+          <a href="/privacidade" className="hover:text-gray-400 underline transition-colors">Privacidade</a>
           {' · '}LGPD · 2026
         </p>
       </div>

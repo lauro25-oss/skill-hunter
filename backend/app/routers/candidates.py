@@ -1,7 +1,7 @@
 import uuid
 import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from openpyxl import Workbook
@@ -28,10 +28,6 @@ ALLOWED_TYPES = {
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
-CONTENT_TYPE_MAP = {
-    "application/pdf": "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-}
 MAX_SIZE_MB = 10
 
 
@@ -45,12 +41,6 @@ async def upload_curriculos(
     vaga_origem: str | None = Query(None, description="Nome da vaga para rastreamento"),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Upload em lote de currículos.
-    Cada arquivo é processado independentemente — falhas parciais não cancelam o lote.
-
-    Retorna: { "criados": [...], "erros": [...] }
-    """
     criados = []
     erros   = []
 
@@ -65,18 +55,13 @@ async def upload_curriculos(
                 erros.append({"arquivo": file.filename, "erro": f"Arquivo excede {MAX_SIZE_MB} MB."})
                 continue
 
-            # 1. Parsing + LLM
             data = await parser.parse_curriculum(file_bytes, file.filename)
-
-            # 2. Score
             score = calcular_score(data)
 
-            # 3. Encode para base64
-            blob_id, b64_data = await storage.upload_file(
+            s3_key, b64_data = await storage.upload_file(
                 file_bytes, file.filename, file.content_type or "application/pdf"
             )
 
-            # 4. Persiste no PostgreSQL
             candidate = Candidate(
                 id=uuid.uuid4(),
                 nome=data["nome"],
@@ -90,7 +75,8 @@ async def upload_curriculos(
                 resumo_ia=data.get("resumo_ia"),
                 texto_bruto=data.get("texto_bruto"),
                 vaga_origem=vaga_origem,
-                gcs_url=blob_id,
+                gcs_url=s3_key or str(uuid.uuid4()),
+                arquivo_s3_key=s3_key,
                 arquivo_base64=b64_data,
                 nome_arquivo=file.filename,
                 score_aderencia=score,
@@ -100,7 +86,6 @@ async def upload_curriculos(
             await db.refresh(candidate)
             criados.append(CandidateOut.model_validate(candidate))
 
-            # Notificação por e-mail (não bloqueia o fluxo em caso de falha)
             try:
                 await enviar_email_novo_candidato(candidate.nome, file.filename, vaga_origem)
             except Exception:
@@ -175,44 +160,54 @@ async def get_candidate(candidate_id: uuid.UUID, db: AsyncSession = Depends(get_
     return CandidateOut.model_validate(c)
 
 
-# ── Data URL do CV ───────────────────────────────────────────
+# ── Data URL / presigned URL do CV ───────────────────────────
 
 @router.get("/{candidate_id}/cv-url")
 async def get_cv_url(
     candidate_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    from fastapi.responses import Response
     c = await _get_or_404(candidate_id, db)
-    if not c.arquivo_base64:
-        raise HTTPException(404, "Este candidato não possui arquivo armazenado.")
 
-    ext = (c.nome_arquivo or "").lower()
-    if ext.endswith(".docx"):
-        content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    else:
-        content_type = "application/pdf"
+    # S3/R2: redireciona para URL assinada temporária
+    if c.arquivo_s3_key:
+        try:
+            url = await storage.generate_presigned_url(c.arquivo_s3_key)
+            return RedirectResponse(url)
+        except Exception:
+            pass
 
-    file_bytes = storage.decode_file(c.arquivo_base64)
-    filename = c.nome_arquivo or "curriculo.pdf"
-    return Response(
-        content=file_bytes,
-        media_type=content_type,
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
-    )
+    # Fallback: base64 no banco
+    if c.arquivo_base64:
+        ext = (c.nome_arquivo or "").lower()
+        content_type = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            if ext.endswith(".docx") else "application/pdf"
+        )
+        file_bytes = storage.decode_file(c.arquivo_base64)
+        return Response(
+            content=file_bytes,
+            media_type=content_type,
+            headers={"Content-Disposition": f'inline; filename="{c.nome_arquivo or "curriculo.pdf"}"'},
+        )
+
+    raise HTTPException(404, "Este candidato não possui arquivo armazenado.")
 
 
 # ── Re-parsear CV existente ──────────────────────────────────
 
 @router.post("/{candidate_id}/reparse", response_model=CandidateOut)
 async def reparse_candidate(candidate_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    """Re-processa o currículo armazenado com o LLM."""
     c = await _get_or_404(candidate_id, db)
-    if not c.arquivo_base64 or not c.nome_arquivo:
+
+    if c.arquivo_s3_key:
+        file_bytes = await storage.get_file_bytes(c.arquivo_s3_key)
+    elif c.arquivo_base64:
+        file_bytes = storage.decode_file(c.arquivo_base64)
+    else:
         raise HTTPException(400, "Candidato sem arquivo armazenado para re-parsear.")
 
-    file_bytes = storage.decode_file(c.arquivo_base64)
-    data  = await parser.parse_curriculum(file_bytes, c.nome_arquivo)
+    data  = await parser.parse_curriculum(file_bytes, c.nome_arquivo or "curriculo.pdf")
     score = calcular_score(data)
 
     c.nome             = data["nome"]             or c.nome
@@ -248,7 +243,6 @@ async def update_candidate(
     await db.commit()
     await db.refresh(c)
 
-    # E-mail ao mudar status
     novo_status = dados.get("status")
     if novo_status and novo_status != status_anterior:
         try:
@@ -272,7 +266,6 @@ async def export_excel(db: AsyncSession = Depends(get_db)):
     ws = wb.active
     ws.title = "Candidatos"
 
-    # Estilos
     header_fill  = PatternFill("solid", fgColor="1D4ED8")
     header_font  = Font(color="FFFFFF", bold=True, size=10)
     header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -282,12 +275,8 @@ async def export_excel(db: AsyncSession = Depends(get_db)):
     )
     alt_fill = PatternFill("solid", fgColor="EFF6FF")
 
-    headers = [
-        "Nome", "Cargo Atual", "Status", "Localização",
-        "Exp. (anos)", "Score", "Hard Skills", "Shortlist",
-        "Avaliação Cliente", "Vaga", "E-mail", "Telefone", "Adicionado",
-    ]
-
+    headers    = ["Nome", "Cargo Atual", "Status", "Localização", "Exp. (anos)", "Score",
+                  "Hard Skills", "Shortlist", "Avaliação Cliente", "Vaga", "E-mail", "Telefone", "Adicionado"]
     col_widths = [28, 22, 14, 20, 12, 10, 40, 12, 18, 20, 28, 16, 14]
 
     for ci, (h, w) in enumerate(zip(headers, col_widths), 1):
@@ -297,7 +286,6 @@ async def export_excel(db: AsyncSession = Depends(get_db)):
         cell.alignment = header_align
         cell.border = thin_border
         ws.column_dimensions[get_column_letter(ci)].width = w
-
     ws.row_dimensions[1].height = 28
 
     STATUS_LABELS = {
@@ -306,11 +294,8 @@ async def export_excel(db: AsyncSession = Depends(get_db)):
     }
 
     for ri, c in enumerate(candidates, 2):
-        aprovacao = (
-            "Aprovado" if c.aprovado_cliente is True
-            else "Reprovado" if c.aprovado_cliente is False
-            else "Pendente"
-        )
+        aprovacao = ("Aprovado" if c.aprovado_cliente is True
+                     else "Reprovado" if c.aprovado_cliente is False else "Pendente")
         row_data = [
             c.nome,
             c.cargo_atual or "",
@@ -327,9 +312,9 @@ async def export_excel(db: AsyncSession = Depends(get_db)):
             c.criado_em.strftime("%d/%m/%Y") if c.criado_em else "",
         ]
         fill = alt_fill if ri % 2 == 0 else None
-        for ci, value in enumerate(row_data, 1):
-            cell = ws.cell(row=ri, column=ci, value=value)
-            cell.alignment = Alignment(vertical="center", wrap_text=(ci == 7))
+        for ci_idx, value in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci_idx, value=value)
+            cell.alignment = Alignment(vertical="center", wrap_text=(ci_idx == 7))
             cell.border = thin_border
             if fill:
                 cell.fill = fill
@@ -355,6 +340,11 @@ async def export_excel(db: AsyncSession = Depends(get_db)):
 @router.delete("/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_candidate(candidate_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     c = await _get_or_404(candidate_id, db)
+    if c.arquivo_s3_key:
+        try:
+            await storage.delete_file(c.arquivo_s3_key)
+        except Exception:
+            pass
     await db.delete(c)
     await db.commit()
 
@@ -363,8 +353,12 @@ async def delete_candidate(candidate_id: uuid.UUID, db: AsyncSession = Depends(g
 
 @router.post("/{candidate_id}/anonimizar", status_code=status.HTTP_200_OK)
 async def anonimizar_candidato(candidate_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    """Remove dados pessoais do candidato mantendo estatísticas do pipeline (LGPD art. 18)."""
     c = await _get_or_404(candidate_id, db)
+    if c.arquivo_s3_key:
+        try:
+            await storage.delete_file(c.arquivo_s3_key)
+        except Exception:
+            pass
     c.nome           = "[Dados removidos - LGPD]"
     c.email          = None
     c.telefone       = None
@@ -372,6 +366,7 @@ async def anonimizar_candidato(candidate_id: uuid.UUID, db: AsyncSession = Depen
     c.texto_bruto    = None
     c.resumo_ia      = None
     c.arquivo_base64 = None
+    c.arquivo_s3_key = None
     c.nome_arquivo   = None
     c.gcs_url        = None
     c.notas          = None

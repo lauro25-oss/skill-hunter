@@ -3,6 +3,17 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
+from passlib.context import CryptContext
+
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(plain: str) -> str:
+    return _pwd_context.hash(plain)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return _pwd_context.verify(plain, hashed)
 
 SECRET_KEY  = os.getenv("JWT_SECRET",       "skill-hunter-dev-secret-2024-change-me")
 ADMIN_USER  = os.getenv("ADMIN_USERNAME",   "admin")

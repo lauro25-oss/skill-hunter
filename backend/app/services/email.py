@@ -120,6 +120,28 @@ async def enviar_email_status_alterado(nome: str, status_anterior: str, novo_sta
     await _send(f"[SKILL HUNTER] {nome} → {label_novo}", body)
 
 
+async def enviar_email_reset_senha(token: str) -> None:
+    frontend_url = os.environ.get("FRONTEND_URL", "https://skill-hunter-psi.vercel.app")
+    reset_url    = f"{frontend_url}/reset-password?token={token}"
+    body = f"""
+    <h2 style="margin:0 0 12px;color:#111827;font-size:16px;">Redefinição de senha</h2>
+    <p style="color:#374151;margin:0 0 16px;">
+      Recebemos uma solicitação para redefinir a senha do sistema SKILL HUNTER.<br>
+      Clique no botão abaixo para criar uma nova senha. O link expira em <strong>2 horas</strong>.
+    </p>
+    <p style="margin:0 0 20px;">
+      <a href="{reset_url}"
+         style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">
+        Redefinir minha senha
+      </a>
+    </p>
+    <p style="color:#6b7280;font-size:12px;margin:0;">
+      Se você não solicitou a redefinição, ignore este e-mail. Sua senha permanece a mesma.
+    </p>
+    """
+    await _send("[SKILL HUNTER] Redefinição de senha", body)
+
+
 async def enviar_email_shortlist_criada(label: str, total: int, token: str) -> None:
     frontend_url = os.environ.get("FRONTEND_URL", "https://skill-hunter-psi.vercel.app")
     portal_url   = f"{frontend_url}/shortlist/{token}"

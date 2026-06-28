@@ -153,6 +153,12 @@ export const getStats = () =>
 export const login = (username: string, password: string) =>
   api.post<{ token: string }>('/auth/login', { username, password }).then(r => r.data)
 
+export const forgotPassword = (username: string) =>
+  api.post('/auth/forgot-password', { username }).then(r => r.data)
+
+export const resetPassword = (token: string, new_password: string) =>
+  api.post('/auth/reset-password', { token, new_password }).then(r => r.data)
+
 export const logout = () => {
   localStorage.removeItem('auth_token')
   window.location.href = '/login'

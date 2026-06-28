@@ -38,3 +38,9 @@ openpyxl==3.1.5
 
 # E-mail (Resend)
 resend==2.3.0
+
+# Autenticação — hash de senhas
+passlib[bcrypt]==1.7.4
+
+# Armazenamento S3/R2
+boto3==1.34.144

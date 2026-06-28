@@ -1,10 +1,13 @@
 import { ReactNode } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import TriagemPage      from './pages/TriagemPage'
-import ShortlistPage    from './pages/ShortlistPage'
-import LoginPage        from './pages/LoginPage'
-import DashboardPage    from './pages/DashboardPage'
-import PrivacidadePage  from './pages/PrivacidadePage'
+import TriagemPage          from './pages/TriagemPage'
+import ShortlistPage        from './pages/ShortlistPage'
+import LoginPage            from './pages/LoginPage'
+import DashboardPage        from './pages/DashboardPage'
+import PrivacidadePage      from './pages/PrivacidadePage'
+import TermosPage           from './pages/TermosPage'
+import ForgotPasswordPage   from './pages/ForgotPasswordPage'
+import ResetPasswordPage    from './pages/ResetPasswordPage'
 
 function AuthGuard({ children }: { children: ReactNode }) {
   const token = localStorage.getItem('auth_token')
@@ -19,8 +22,11 @@ export default function App() {
       <Route path="/shortlist/:token" element={<ShortlistPage />} />
       <Route path="/"          element={<AuthGuard><TriagemPage /></AuthGuard>} />
       <Route path="/dashboard"   element={<AuthGuard><DashboardPage /></AuthGuard>} />
-      <Route path="/privacidade" element={<PrivacidadePage />} />
-      <Route path="*"            element={<Navigate to="/" replace />} />
+      <Route path="/privacidade"    element={<PrivacidadePage />} />
+      <Route path="/termos"         element={<TermosPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password"  element={<ResetPasswordPage />} />
+      <Route path="*"               element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

@@ -44,8 +44,9 @@ class Candidate(Base):
     score_aderencia    = Column(Float)                 # 0–100
 
     # ── Armazenamento ───────────────────────────────────────
-    gcs_url            = Column(String(1024))          # blob_id (referência interna)
-    arquivo_base64     = Column(Text)                  # arquivo armazenado em base64
+    gcs_url            = Column(String(1024))          # blob_id / indicador de presença de arquivo
+    arquivo_base64     = Column(Text)                  # arquivo em base64 (fallback sem S3)
+    arquivo_s3_key     = Column(String(512))           # chave no bucket S3/R2
     nome_arquivo       = Column(String(512))
 
     # ── Anotações internas ──────────────────────────────────
