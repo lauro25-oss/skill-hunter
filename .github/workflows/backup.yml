@@ -1,0 +1,26 @@
+name: Backup PostgreSQL diário
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # todo dia às 03:00 UTC (00:00 BRT)
+  workflow_dispatch:       # permite rodar manualmente
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump do banco
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          sudo apt-get install -y postgresql-client
+          DATE=$(date +%Y-%m-%d)
+          pg_dump "$DATABASE_URL" --no-password -Fc -f "backup-$DATE.dump"
+          echo "Backup gerado: backup-$DATE.dump ($(du -sh backup-$DATE.dump | cut -f1))"
+
+      - name: Salvar backup como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-backup-${{ github.run_id }}
+          path: backup-*.dump
+          retention-days: 30
