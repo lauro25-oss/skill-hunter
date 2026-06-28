@@ -43,7 +43,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {item.type === 'success' && <CheckCircle size={16} className="text-brand-500 shrink-0" />}
             {item.type === 'error'   && <AlertCircle size={16} className="text-red-500 shrink-0"   />}
             {item.type === 'info'    && <Info         size={16} className="text-blue-500 shrink-0"  />}
-            <span className="flex-1 text-gray-700">{message}</span>
+            <span className="flex-1 text-gray-700">{item.message}</span>
             <button
               onClick={() => setItems(prev => prev.filter(t => t.id !== item.id))}
               className="text-gray-300 hover:text-gray-500 shrink-0"
