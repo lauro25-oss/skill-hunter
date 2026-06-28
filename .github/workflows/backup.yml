@@ -22,7 +22,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           DATE=$(date +%Y-%m-%d)
-          pg_dump "$DATABASE_URL" --no-password -Fc -f "backup-$DATE.dump"
+          /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL" --no-password -Fc -f "backup-$DATE.dump"
           echo "Backup gerado: backup-$DATE.dump ($(du -sh backup-$DATE.dump | cut -f1))"
 
       - name: Salvar backup como artifact
