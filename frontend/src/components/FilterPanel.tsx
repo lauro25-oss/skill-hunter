@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { type SearchQuery, type CandidateStatus, type VagaOut, getVagas, createVaga, deleteVaga, updateVaga, recalculateScores } from '../api/client'
-import { Plus, Check, X, Trash2, Settings2, RefreshCw, Star } from 'lucide-react'
+import { Plus, Check, X, Trash2, Settings2, RefreshCw, Star, LayoutDashboard, List } from 'lucide-react'
 import clsx from 'clsx'
 
 const STATUSES: { value: CandidateStatus; label: string; dot: string }[] = [
@@ -28,6 +29,8 @@ interface Props {
 
 export default function FilterPanel({ query, onChange }: Props) {
   const qc = useQueryClient()
+  const navigate  = useNavigate()
+  const location  = useLocation()
   const [showCreate,   setShowCreate]   = useState(false)
   const [newTitulo,    setNewTitulo]    = useState('')
   const [expandedId,   setExpandedId]   = useState<string | null>(null)
@@ -56,11 +59,33 @@ export default function FilterPanel({ query, onChange }: Props) {
     <aside className="w-52 shrink-0 bg-white shadow-panel flex flex-col overflow-y-auto z-10">
 
       {/* ── Marca ─────────────────────────────────────── */}
-      <div className="px-5 pt-6 pb-5">
+      <div className="px-5 pt-6 pb-4">
         <p className="font-logo font-extrabold text-[20px] leading-none text-brand-600 tracking-tight uppercase">
           SKILL HUNTER<span className="text-brand-400">.</span>
         </p>
         <p className="text-[10px] text-gray-300 mt-1 tracking-wide">by skill certo.</p>
+      </div>
+
+      {/* ── Navegação ─────────────────────────────────── */}
+      <div className="px-3 pb-4 flex gap-1">
+        <button
+          onClick={() => navigate('/')}
+          className={clsx(
+            'flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium py-1.5 rounded-md transition-colors',
+            location.pathname === '/' ? 'bg-brand-50 text-brand-700' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700',
+          )}
+        >
+          <List size={12} /> Triagem
+        </button>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className={clsx(
+            'flex-1 flex items-center justify-center gap-1.5 text-[11px] font-medium py-1.5 rounded-md transition-colors',
+            location.pathname === '/dashboard' ? 'bg-brand-50 text-brand-700' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700',
+          )}
+        >
+          <LayoutDashboard size={12} /> Dashboard
+        </button>
       </div>
 
       <div className="flex-1 px-3 space-y-6 pb-6">

@@ -100,7 +100,6 @@ async def upload_curriculos(
 
 @router.get("/stats")
 async def get_stats(db: AsyncSession = Depends(get_db)):
-    """Retorna contagens de candidatos por status."""
     total_result = await db.execute(select(func.count(Candidate.id)))
     total = total_result.scalar() or 0
 
@@ -108,6 +107,34 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         select(Candidate.status, func.count(Candidate.id)).group_by(Candidate.status)
     )
     counts = {row[0].value: row[1] for row in rows}
+
+    score_result = await db.execute(
+        select(func.avg(Candidate.score_aderencia)).where(Candidate.score_aderencia.isnot(None))
+    )
+    score_avg = round(float(score_result.scalar() or 0), 1)
+
+    vagas_rows = await db.execute(
+        select(Candidate.vaga_origem, func.count(Candidate.id))
+        .where(Candidate.vaga_origem.isnot(None))
+        .group_by(Candidate.vaga_origem)
+        .order_by(func.count(Candidate.id).desc())
+        .limit(6)
+    )
+    top_vagas = [{"vaga": r[0], "total": r[1]} for r in vagas_rows]
+
+    approval_rows = await db.execute(
+        select(Candidate.aprovado_cliente, func.count(Candidate.id))
+        .where(Candidate.em_shortlist == True)
+        .group_by(Candidate.aprovado_cliente)
+    )
+    approval = {"aprovado": 0, "reprovado": 0, "pendente": 0}
+    for val, cnt in approval_rows:
+        if val is True:
+            approval["aprovado"] = cnt
+        elif val is False:
+            approval["reprovado"] = cnt
+        else:
+            approval["pendente"] = cnt
 
     return {
         "total":      total,
@@ -117,6 +144,9 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         "aprovado":   counts.get("aprovado", 0),
         "rejeitado":  counts.get("rejeitado", 0),
         "contratado": counts.get("contratado", 0),
+        "score_avg":  score_avg,
+        "top_vagas":  top_vagas,
+        "aprovacao":  approval,
     }
 
 

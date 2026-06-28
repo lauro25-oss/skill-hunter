@@ -125,6 +125,9 @@ export interface Stats {
   aprovado: number
   rejeitado: number
   contratado: number
+  score_avg: number
+  top_vagas: { vaga: string; total: number }[]
+  aprovacao: { aprovado: number; reprovado: number; pendente: number }
 }
 
 export const getStats = () =>
