@@ -71,6 +71,6 @@ app.include_router(vagas.router)
 app.include_router(portal.router)
 
 
-@app.get("/health", tags=["Sistema"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["Sistema"])
 async def health():
     return {"status": "ok", "environment": settings.environment}
