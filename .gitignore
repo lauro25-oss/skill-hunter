@@ -1,0 +1,40 @@
+# Ambiente
+.env
+.env.local
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/.next/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Alembic
+backend/alembic/versions/*.pyc
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes locais
+postgres_data/
+elastic_data/

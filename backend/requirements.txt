@@ -1,0 +1,30 @@
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# Banco de dados
+sqlalchemy==2.0.31
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+alembic==1.13.2
+
+# Parsing de PDF/DOCX
+pdfplumber==0.11.1
+python-docx==1.1.2
+
+# IA — Groq (gratuito)
+groq==0.9.0
+
+# Upload de arquivos
+python-multipart==0.0.9
+
+# Configuração
+pydantic==2.7.4
+pydantic-settings==2.3.4
+python-dotenv==1.0.1
+
+# HTTP client
+httpx==0.27.0
+
+# Autenticação JWT
+PyJWT==2.8.0
