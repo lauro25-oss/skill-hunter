@@ -15,16 +15,24 @@ depends_on = None
 
 
 def upgrade():
-    op.execute("CREATE TYPE vaga_status AS ENUM ('aberta', 'fechada', 'arquivada')")
-    op.create_table(
-        "vagas",
-        sa.Column("id",        UUID(as_uuid=True), primary_key=True),
-        sa.Column("titulo",    sa.String(255),      nullable=False),
-        sa.Column("descricao", sa.Text(),           nullable=True),
-        sa.Column("status",    sa.Enum("aberta", "fechada", "arquivada", name="vaga_status"),
-                  nullable=False, server_default="aberta"),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.func.now()),
-    )
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE vaga_status AS ENUM ('aberta', 'fechada', 'arquivada');
+        EXCEPTION WHEN duplicate_object THEN null;
+        END $$;
+    """)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "vagas" not in inspector.get_table_names():
+        op.create_table(
+            "vagas",
+            sa.Column("id",        UUID(as_uuid=True), primary_key=True),
+            sa.Column("titulo",    sa.String(255),      nullable=False),
+            sa.Column("descricao", sa.Text(),           nullable=True),
+            sa.Column("status",    sa.Enum("aberta", "fechada", "arquivada", name="vaga_status", create_type=False),
+                      nullable=False, server_default="aberta"),
+            sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        )
 
 
 def downgrade():
