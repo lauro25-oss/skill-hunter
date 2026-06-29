@@ -56,6 +56,31 @@ async def upload_curriculos(
                 continue
 
             data = await parser.parse_curriculum(file_bytes, file.filename)
+
+            # Verificar duplicata: mesmo nome + email ou telefone
+            _nome  = (data.get("nome") or "").strip()
+            _email = (data.get("email") or "").strip().lower()
+            _fone  = (data.get("telefone") or "").strip()
+
+            _dupes = (await db.execute(
+                select(Candidate).where(
+                    func.lower(func.trim(Candidate.nome)) == func.lower(_nome)
+                )
+            )).scalars().all()
+
+            _is_dup = any(
+                (_email and d.email    and _email == d.email.lower())
+                or (_fone  and d.telefone and _fone  == d.telefone)
+                or (not _email and not _fone)
+                for d in _dupes
+            )
+            if _is_dup:
+                erros.append({
+                    "arquivo": file.filename,
+                    "erro": f"Candidato '{_nome}' já existe no sistema.",
+                })
+                continue
+
             score = calcular_score(data)
 
             s3_key, b64_data = await storage.upload_file(

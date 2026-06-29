@@ -42,7 +42,7 @@ export default function CandidateGrid({ candidates, total, page, perPage, select
 
       {/* ── KPIs ─────────────────────────────────────── */}
       {stats && (
-        <div className="flex gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <KpiCard icon={<Users size={15} />}       label="Total de CVs"  value={stats.total}      color="brand"   />
           <KpiCard icon={<TrendingUp size={15} />}  label="Em triagem"    value={stats.em_triagem} color="blue"    />
           <KpiCard icon={<Star size={15} />}        label="Na shortlist"  value={stats.shortlist}  color="purple"  />
@@ -238,7 +238,7 @@ const KPI_STYLES: Record<string, { icon: string; num: string; bg: string }> = {
 function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
   const s = KPI_STYLES[color]
   return (
-    <div className="bg-white rounded-xl shadow-card px-4 py-3 flex items-center gap-3 min-w-[140px]">
+    <div className="bg-white rounded-xl shadow-card px-4 py-3 flex items-center gap-3">
       <div className={clsx('w-7 h-7 rounded-lg flex items-center justify-center shrink-0', s.bg, s.icon)}>
         {icon}
       </div>

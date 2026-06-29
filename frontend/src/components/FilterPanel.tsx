@@ -25,9 +25,11 @@ const EXP_RANGES = [
 interface Props {
   query: SearchQuery
   onChange: (q: SearchQuery) => void
+  isOpen?: boolean
+  onClose?: () => void
 }
 
-export default function FilterPanel({ query, onChange }: Props) {
+export default function FilterPanel({ query, onChange, isOpen = true, onClose }: Props) {
   const qc = useQueryClient()
   const navigate  = useNavigate()
   const location  = useLocation()
@@ -56,7 +58,21 @@ export default function FilterPanel({ query, onChange }: Props) {
   const setVaga     = (titulo?: string)      => onChange({ ...query, vaga_origem: titulo, page: 1 })
 
   return (
-    <aside className="w-52 shrink-0 bg-white shadow-panel flex flex-col overflow-y-auto z-10">
+    <aside className={clsx(
+  "w-52 bg-white shadow-panel flex flex-col overflow-y-auto z-50",
+  "fixed inset-y-0 left-0 transition-transform duration-300",
+  "md:static md:shrink-0",
+  isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+)}>
+
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="md:hidden self-end p-3 text-gray-400 hover:text-gray-600"
+        >
+          <X size={18} />
+        </button>
+      )}
 
       {/* ── Marca ─────────────────────────────────────── */}
       <div className="px-5 pt-6 pb-4">

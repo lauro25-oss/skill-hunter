@@ -7,7 +7,7 @@ import KanbanView from '../components/KanbanView'
 import CandidateDrawer from '../components/CandidateDrawer'
 import SearchBar from '../components/SearchBar'
 import { useToast } from '../components/Toast'
-import { Upload, LayoutGrid, Columns2, Download, FileSpreadsheet, LogOut } from 'lucide-react'
+import { Upload, LayoutGrid, Columns2, Download, FileSpreadsheet, LogOut, Menu } from 'lucide-react'
 import PortalManager from '../components/PortalManager'
 import clsx from 'clsx'
 
@@ -31,6 +31,7 @@ export default function TriagemPage() {
   const [exportingXlsx, setExportingXlsx] = useState(false)
   const [view,       setView]       = useState<ViewMode>('cards')
   const [uploadVaga, setUploadVaga] = useState<string>('')
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
   // Cards paginado
   const { data } = useQuery({
@@ -135,12 +136,31 @@ export default function TriagemPage() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
 
-      <FilterPanel query={query} onChange={setQuery} />
+      {/* Mobile backdrop */}
+      {mobileFilterOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          onClick={() => setMobileFilterOpen(false)}
+        />
+      )}
+      <FilterPanel
+        query={query}
+        onChange={setQuery}
+        isOpen={mobileFilterOpen}
+        onClose={() => setMobileFilterOpen(false)}
+      />
 
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Topbar */}
-        <header className="bg-white border-b border-gray-100 px-6 py-2.5 flex items-center gap-3 shadow-sm">
+        <header className="bg-white border-b border-gray-100 px-3 sm:px-6 py-2.5 flex flex-wrap items-center gap-2 sm:gap-3 shadow-sm">
+          {/* Botão hamburger mobile */}
+          <button
+            className="md:hidden p-1.5 text-gray-500 hover:text-gray-700 shrink-0"
+            onClick={() => setMobileFilterOpen(true)}
+          >
+            <Menu size={20} />
+          </button>
           <div className="flex-1">
             <SearchBar
               value={query.q || ''}

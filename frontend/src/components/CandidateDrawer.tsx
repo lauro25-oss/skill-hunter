@@ -107,7 +107,7 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
     <>
       <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} aria-hidden />
 
-      <aside className="fixed top-0 right-0 h-full w-[500px] max-w-full bg-white shadow-2xl z-50 flex flex-col">
+      <aside className="fixed top-0 right-0 h-full w-full sm:w-[500px] bg-white shadow-2xl z-50 flex flex-col">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 shrink-0">
