@@ -28,7 +28,7 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
   const [cvUrl, setCvUrl]         = useState<string | null>(null)
   const [loadingCv, setLoadingCv] = useState(false)
 
-  const { data: c, isLoading } = useQuery({
+  const { data: c, isLoading, isError } = useQuery({
     queryKey:  ['candidate', candidateId],
     queryFn:   () => getCandidate(candidateId),
     staleTime: 60_000,
@@ -128,8 +128,20 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
         </div>
 
         {/* Corpo */}
-        {isLoading || !c ? (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+        {isError ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-sm font-medium text-red-500">Não foi possível carregar o candidato</p>
+            <p className="text-xs text-gray-400">O servidor demorou para responder. Tente novamente.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-secondary text-xs mt-1"
+            >
+              Recarregar página
+            </button>
+          </div>
+        ) : isLoading || !c ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-gray-400 text-sm">
+            <div className="w-5 h-5 border-2 border-gray-200 border-t-brand-500 rounded-full animate-spin" />
             Carregando candidato…
           </div>
         ) : (
