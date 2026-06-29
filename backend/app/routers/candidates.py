@@ -209,26 +209,32 @@ async def get_cv_url(
 ):
     c = await _get_or_404(candidate_id, db)
 
-    # S3/R2: retorna URL assinada como JSON (window.open não tem restrição CORS)
+    ext = (c.nome_arquivo or "").lower()
+    content_type = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if ext.endswith(".docx") else "application/pdf"
+    )
+    filename = c.nome_arquivo or "curriculo.pdf"
+
+    # R2/S3: backend baixa o arquivo e envia ao cliente (sem CORS)
     if c.arquivo_s3_key:
         try:
-            url = await storage.generate_presigned_url(c.arquivo_s3_key)
-            return {"url": url}
+            file_bytes = await storage.get_file_bytes(c.arquivo_s3_key)
+            return Response(
+                content=file_bytes,
+                media_type=content_type,
+                headers={"Content-Disposition": f'inline; filename="{filename}"'},
+            )
         except Exception:
             pass
 
     # Fallback: base64 no banco
     if c.arquivo_base64:
-        ext = (c.nome_arquivo or "").lower()
-        content_type = (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            if ext.endswith(".docx") else "application/pdf"
-        )
         file_bytes = storage.decode_file(c.arquivo_base64)
         return Response(
             content=file_bytes,
             media_type=content_type,
-            headers={"Content-Disposition": f'inline; filename="{c.nome_arquivo or "curriculo.pdf"}"'},
+            headers={"Content-Disposition": f'inline; filename="{filename}"'},
         )
 
     raise HTTPException(404, "Este candidato não possui arquivo armazenado.")

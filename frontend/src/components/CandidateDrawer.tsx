@@ -89,26 +89,21 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
   const openCv = async () => {
     if (cvUrl) { window.open(cvUrl, '_blank'); return }
     setLoadingCv(true)
+    // Abre janela antes do await para não ser bloqueada pelo mobile
+    const win = window.open('', '_blank')
     try {
-      // Arquivos no R2: backend retorna JSON com URL assinada — window.open não tem restrição CORS
-      const res = await api.get<{ url?: string }>(`/candidates/${candidateId}/cv-url`)
-      if (res.data?.url) {
-        setCvUrl(res.data.url)
-        window.open(res.data.url, '_blank')
-        return
-      }
-      throw new Error('sem url')
+      const res = await api.get(`/candidates/${candidateId}/cv-url`, {
+        responseType: 'blob',
+        timeout: 60000,
+      })
+      const contentType = (res.headers['content-type'] as string) || 'application/pdf'
+      const url = URL.createObjectURL(new Blob([res.data], { type: contentType }))
+      setCvUrl(url)
+      if (win) win.location.href = url
+      else window.open(url, '_blank')
     } catch {
-      // Fallback: base64 armazenado no banco (candidatos legados sem R2)
-      try {
-        const res = await api.get(`/candidates/${candidateId}/cv-url`, { responseType: 'blob' })
-        const contentType = (res.headers['content-type'] as string) || 'application/pdf'
-        const url = URL.createObjectURL(new Blob([res.data], { type: contentType }))
-        setCvUrl(url)
-        window.open(url, '_blank')
-      } catch {
-        toast('Não foi possível carregar o CV', 'error')
-      }
+      win?.close()
+      toast('Não foi possível carregar o CV', 'error')
     } finally {
       setLoadingCv(false)
     }
