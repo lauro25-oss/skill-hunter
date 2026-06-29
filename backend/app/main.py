@@ -10,6 +10,8 @@ import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
+from sqlalchemy import text
+
 from app.config import settings
 from app.database import engine, Base
 from app.services.elastic import ensure_index
@@ -34,6 +36,9 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["300/minute"])
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text(
+            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS arquivo_s3_key VARCHAR(512)"
+        ))
 
     try:
         await ensure_index()
