@@ -287,7 +287,7 @@ function TimelineChart({ stats }: { stats: Stats }) {
           const pct = (t.total / max) * 100
           const mes = MESES[parseInt(t.mes.split('-')[1]) - 1]
           return (
-            <div key={t.mes} className="flex-1 flex flex-col items-center gap-1">
+            <div key={t.mes} className="flex-1 min-w-0 max-w-[64px] flex flex-col items-center gap-1">
               <span className="text-[10px] font-semibold text-gray-500">{t.total}</span>
               <div className="w-full bg-gray-50 rounded-sm flex flex-col justify-end" style={{ height: '48px' }}>
                 <div className="w-full bg-brand-400 rounded-sm transition-all duration-500" style={{ height: `${pct}%` }} />
