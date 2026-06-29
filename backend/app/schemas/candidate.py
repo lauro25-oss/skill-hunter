@@ -102,3 +102,16 @@ class SearchResult(BaseModel):
     page: int
     per_page: int
     results: list[CandidateListItem]
+
+
+class CommentCreate(BaseModel):
+    texto: str = Field(..., min_length=1, max_length=2000)
+
+
+class CommentOut(BaseModel):
+    id: UUID
+    candidate_id: UUID
+    texto: str
+    criado_em: datetime
+
+    model_config = {"from_attributes": True}

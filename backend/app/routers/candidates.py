@@ -3,7 +3,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Request, status
 from fastapi.responses import StreamingResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -11,7 +11,8 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from app.database import get_db
 from app.models.candidate import Candidate, CandidateStatus
-from app.schemas.candidate import CandidateOut, CandidateUpdate
+from app.models.comment import CandidateComment
+from app.schemas.candidate import CandidateOut, CandidateUpdate, CommentOut, CommentCreate
 from app.services import parser, storage
 from app.services.score import calcular_score
 from app.auth import get_current_user
@@ -165,6 +166,17 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         else:
             approval["pendente"] = cnt
 
+    timeline_raw = await db.execute(text("""
+        SELECT
+            TO_CHAR(DATE_TRUNC('month', criado_em), 'YYYY-MM') AS mes,
+            COUNT(*) AS total
+        FROM candidates
+        WHERE criado_em >= NOW() - INTERVAL '6 months'
+        GROUP BY DATE_TRUNC('month', criado_em)
+        ORDER BY DATE_TRUNC('month', criado_em)
+    """))
+    timeline = [{"mes": row[0], "total": row[1]} for row in timeline_raw]
+
     return {
         "total":      total,
         "novo":       counts.get("novo", 0),
@@ -176,6 +188,7 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         "score_avg":  score_avg,
         "top_vagas":  top_vagas,
         "aprovacao":  approval,
+        "timeline":   timeline,
     }
 
 
@@ -392,6 +405,44 @@ async def anonimizar_candidato(candidate_id: uuid.UUID, db: AsyncSession = Depen
     c.anonimizado    = True
     await db.commit()
     return {"ok": True, "mensagem": "Dados pessoais removidos conforme LGPD."}
+
+
+# ── Comentários ──────────────────────────────────────────────
+
+@router.get("/{candidate_id}/comments")
+async def list_comments(candidate_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    await _get_or_404(candidate_id, db)
+    result = await db.execute(
+        select(CandidateComment)
+        .where(CandidateComment.candidate_id == candidate_id)
+        .order_by(CandidateComment.criado_em.asc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/{candidate_id}/comments", status_code=status.HTTP_201_CREATED)
+async def add_comment(candidate_id: uuid.UUID, payload: CommentCreate, db: AsyncSession = Depends(get_db)):
+    await _get_or_404(candidate_id, db)
+    comment = CandidateComment(id=uuid.uuid4(), candidate_id=candidate_id, texto=payload.texto)
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    return CommentOut.model_validate(comment)
+
+
+@router.delete("/{candidate_id}/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_comment(candidate_id: uuid.UUID, comment_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(CandidateComment).where(
+            CandidateComment.id == comment_id,
+            CandidateComment.candidate_id == candidate_id,
+        )
+    )
+    comment = result.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(404, "Comentário não encontrado.")
+    await db.delete(comment)
+    await db.commit()
 
 
 # ── Helper ───────────────────────────────────────────────────

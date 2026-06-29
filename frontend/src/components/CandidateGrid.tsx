@@ -42,12 +42,18 @@ export default function CandidateGrid({ candidates, total, page, perPage, select
 
       {/* ── KPIs ─────────────────────────────────────── */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <KpiCard icon={<Users size={15} />}       label="Total de CVs"  value={stats.total}      color="brand"   />
-          <KpiCard icon={<TrendingUp size={15} />}  label="Em triagem"    value={stats.em_triagem} color="blue"    />
-          <KpiCard icon={<Star size={15} />}        label="Na shortlist"  value={stats.shortlist}  color="purple"  />
-          <KpiCard icon={<CheckCircle size={15} />} label="Contratados"   value={stats.contratado} color="emerald" />
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <KpiCard icon={<Users size={15} />}       label="Total de CVs"  value={stats.total}      color="brand"   />
+            <KpiCard icon={<TrendingUp size={15} />}  label="Em triagem"    value={stats.em_triagem} color="blue"    />
+            <KpiCard icon={<Star size={15} />}        label="Na shortlist"  value={stats.shortlist}  color="purple"  />
+            <KpiCard icon={<CheckCircle size={15} />} label="Contratados"   value={stats.contratado} color="emerald" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FunnelChart stats={stats} />
+            {stats.timeline?.length > 0 && <TimelineChart stats={stats} />}
+          </div>
+        </>
       )}
 
       {/* Contador */}
@@ -221,6 +227,75 @@ function CandidateCard({ candidate: c, selected, onSelect }: {
             <X size={13} />
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Funnel Chart ─────────────────────────────────────────────
+
+function FunnelChart({ stats }: { stats: Stats }) {
+  const stages = [
+    { key: 'novo'       as const, label: 'Novo',       color: 'bg-gray-300'    },
+    { key: 'em_triagem' as const, label: 'Em triagem', color: 'bg-blue-400'    },
+    { key: 'shortlist'  as const, label: 'Shortlist',  color: 'bg-purple-400'  },
+    { key: 'aprovado'   as const, label: 'Aprovado',   color: 'bg-brand-500'   },
+    { key: 'contratado' as const, label: 'Contratado', color: 'bg-emerald-500' },
+  ]
+  const values = stages.map(s => stats[s.key])
+  const max    = Math.max(...values, 1)
+
+  return (
+    <div className="bg-white rounded-xl shadow-card p-4">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Funil de pipeline</p>
+      <div className="space-y-2">
+        {stages.map((s, i) => {
+          const val = values[i]
+          const pct = (val / max) * 100
+          return (
+            <div key={s.key} className="flex items-center gap-3">
+              <span className="text-[11px] text-gray-500 w-20 shrink-0 text-right">{s.label}</span>
+              <div className="flex-1 h-5 bg-gray-50 rounded overflow-hidden">
+                <div className={clsx('h-full rounded transition-all duration-500', s.color)} style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-[11px] font-bold text-gray-600 w-5 text-right shrink-0">{val}</span>
+            </div>
+          )
+        })}
+      </div>
+      {stats.rejeitado > 0 && (
+        <p className="text-[10px] text-gray-300 mt-3">
+          {stats.rejeitado} rejeitado{stats.rejeitado !== 1 ? 's' : ''} (fora do funil)
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Timeline Chart ────────────────────────────────────────────
+
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+function TimelineChart({ stats }: { stats: Stats }) {
+  const max = Math.max(...stats.timeline.map(t => t.total), 1)
+
+  return (
+    <div className="bg-white rounded-xl shadow-card p-4">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Importações por mês</p>
+      <div className="flex items-end gap-1.5 h-20">
+        {stats.timeline.map(t => {
+          const pct = (t.total / max) * 100
+          const mes = MESES[parseInt(t.mes.split('-')[1]) - 1]
+          return (
+            <div key={t.mes} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-[10px] font-semibold text-gray-500">{t.total}</span>
+              <div className="w-full bg-gray-50 rounded-sm flex flex-col justify-end" style={{ height: '48px' }}>
+                <div className="w-full bg-brand-400 rounded-sm transition-all duration-500" style={{ height: `${pct}%` }} />
+              </div>
+              <span className="text-[10px] text-gray-400">{mes}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

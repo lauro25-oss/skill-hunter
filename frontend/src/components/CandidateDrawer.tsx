@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, getCandidate, updateCandidate, reparse, deleteCandidate, type CandidateStatus } from '../api/client'
+import { api, getCandidate, updateCandidate, reparse, deleteCandidate, getComments, addComment, deleteComment, type CandidateStatus, type CommentOut } from '../api/client'
 import { useToast } from './Toast'
-import { X, FileText, ExternalLink, Save, RefreshCw, CheckCircle, XCircle, Clock, Plus, Trash2 } from 'lucide-react'
+import { X, FileText, ExternalLink, Save, RefreshCw, CheckCircle, XCircle, Clock, Plus, Trash2, MessageSquare } from 'lucide-react'
 import clsx from 'clsx'
 
 const STATUSES: { value: CandidateStatus; label: string; color: string }[] = [
@@ -288,6 +288,17 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
               </button>
             </section>
 
+            {/* Comentários */}
+            <section>
+              <Label>
+                <span className="flex items-center gap-1.5">
+                  <MessageSquare size={11} />
+                  Comentários
+                </span>
+              </Label>
+              <CommentsSection candidateId={candidateId} />
+            </section>
+
             {/* Notas internas */}
             <section>
               <Label>Notas internas</Label>
@@ -420,6 +431,89 @@ function ChipEditor({ label, values, chipClass, onSave }: {
         </button>
       )}
     </section>
+  )
+}
+
+// ── Comments Section ──────────────────────────────────────────
+
+function CommentsSection({ candidateId }: { candidateId: string }) {
+  const qc = useQueryClient()
+  const { toast } = useToast()
+  const [input, setInput] = useState('')
+  const [posting, setPosting] = useState(false)
+
+  const { data: comments = [] } = useQuery<CommentOut[]>({
+    queryKey:  ['comments', candidateId],
+    queryFn:   () => getComments(candidateId),
+    staleTime: 30_000,
+  })
+
+  const handleAdd = async () => {
+    const txt = input.trim()
+    if (!txt) return
+    setPosting(true)
+    try {
+      await addComment(candidateId, txt)
+      qc.invalidateQueries({ queryKey: ['comments', candidateId] })
+      setInput('')
+    } catch {
+      toast('Erro ao adicionar comentário', 'error')
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  const handleDelete = async (commentId: string) => {
+    try {
+      await deleteComment(candidateId, commentId)
+      qc.invalidateQueries({ queryKey: ['comments', candidateId] })
+    } catch {
+      toast('Erro ao excluir comentário', 'error')
+    }
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      {comments.length === 0 && (
+        <p className="text-xs text-gray-400 italic">Nenhum comentário ainda.</p>
+      )}
+      {comments.map(c => (
+        <div key={c.id} className="group bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 flex items-start gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-gray-800 break-words whitespace-pre-wrap">{c.texto}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              {new Date(c.criado_em).toLocaleString('pt-BR', {
+                day: '2-digit', month: '2-digit', year: '2-digit',
+                hour: '2-digit', minute: '2-digit',
+              })}
+            </p>
+          </div>
+          <button
+            onClick={() => handleDelete(c.id)}
+            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all shrink-0 mt-0.5"
+            title="Excluir comentário"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ))}
+      <div className="flex gap-2 mt-2">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAdd() } }}
+          placeholder="Adicionar comentário… (Enter para enviar)"
+          className="input text-sm flex-1 py-1.5"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={posting || !input.trim()}
+          className="btn-primary text-xs px-3 py-1.5 shrink-0 disabled:opacity-40"
+        >
+          {posting ? '…' : 'Enviar'}
+        </button>
+      </div>
+    </div>
   )
 }
 

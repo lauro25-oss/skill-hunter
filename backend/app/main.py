@@ -17,6 +17,7 @@ from app.database import engine, Base
 from app.services.elastic import ensure_index
 from app.routers import candidates, search, vagas, portal, auth
 import app.models.auth_models  # noqa: F401 — registra tabelas no metadata
+import app.models.comment       # noqa: F401 — registra tabela candidate_comments no metadata
 
 # ── Sentry ───────────────────────────────────────────────────
 _sentry_dsn = os.environ.get("SENTRY_DSN", "")

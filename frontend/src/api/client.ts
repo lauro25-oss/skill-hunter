@@ -149,10 +149,27 @@ export interface Stats {
   score_avg: number
   top_vagas: { vaga: string; total: number }[]
   aprovacao: { aprovado: number; reprovado: number; pendente: number }
+  timeline: { mes: string; total: number }[]
+}
+
+export interface CommentOut {
+  id: string
+  candidate_id: string
+  texto: string
+  criado_em: string
 }
 
 export const getStats = () =>
   api.get<Stats>('/candidates/stats').then(r => r.data)
+
+export const getComments = (candidateId: string) =>
+  api.get<CommentOut[]>(`/candidates/${candidateId}/comments`).then(r => r.data)
+
+export const addComment = (candidateId: string, texto: string) =>
+  api.post<CommentOut>(`/candidates/${candidateId}/comments`, { texto }).then(r => r.data)
+
+export const deleteComment = (candidateId: string, commentId: string) =>
+  api.delete(`/candidates/${candidateId}/comments/${commentId}`)
 
 // ── Auth ─────────────────────────────────────────────────────
 
