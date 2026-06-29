@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { searchCandidates, uploadCurriculos, getStats, getVagas, logout, exportExcel, type SearchQuery, type OrderBy, type UploadResult } from '../api/client'
+import { searchCandidates, uploadCurriculos, getStats, getVagas, logout, exportExcel, type SearchQuery, type OrderBy } from '../api/client'
 import FilterPanel from '../components/FilterPanel'
 import CandidateGrid from '../components/CandidateGrid'
 import KanbanView from '../components/KanbanView'
