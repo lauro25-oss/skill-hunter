@@ -1,6 +1,6 @@
 import uuid
 import io
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Request, status
 from fastapi.responses import StreamingResponse, RedirectResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -38,7 +38,7 @@ MAX_SIZE_MB = 10
 async def upload_curriculos(
     request: Request,
     files: list[UploadFile] = File(..., description="PDFs ou DOCX dos candidatos"),
-    vaga_origem: str | None = Query(None, description="Nome da vaga para rastreamento"),
+    vaga_origem: str | None = Form(None, description="Nome da vaga para rastreamento"),
     db: AsyncSession = Depends(get_db),
 ):
     criados = []

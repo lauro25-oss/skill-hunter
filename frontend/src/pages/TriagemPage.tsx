@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { searchCandidates, uploadCurriculos, getStats, getVagas, logout, exportExcel, type SearchQuery, type OrderBy } from '../api/client'
+import { searchCandidates, uploadCurriculos, getStats, getVagas, logout, exportExcel, type SearchQuery, type OrderBy, type UploadResult } from '../api/client'
 import FilterPanel from '../components/FilterPanel'
 import CandidateGrid from '../components/CandidateGrid'
 import KanbanView from '../components/KanbanView'
@@ -65,7 +65,15 @@ export default function TriagemPage() {
       qc.invalidateQueries({ queryKey: ['candidates-kanban'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
       qc.invalidateQueries({ queryKey: ['vagas'] })
-      toast(`${result.length} CV(s) importado(s) com sucesso`)
+      if (result.criados.length > 0) {
+        toast(`${result.criados.length} CV(s) importado(s) com sucesso`)
+      }
+      if (result.erros.length > 0) {
+        result.erros.forEach((e: { arquivo: string; erro: string }) => toast(`Erro em "${e.arquivo}": ${e.erro}`, 'error'))
+      }
+      if (result.criados.length === 0 && result.erros.length === 0) {
+        toast('Nenhum arquivo processado', 'error')
+      }
     },
     onError: () => toast('Erro ao importar CVs', 'error'),
   })

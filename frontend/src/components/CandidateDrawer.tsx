@@ -28,11 +28,11 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
   const [cvUrl, setCvUrl]         = useState<string | null>(null)
   const [loadingCv, setLoadingCv] = useState(false)
 
-  const { data: c, isLoading, isError } = useQuery({
+  const { data: c, isLoading, isError, refetch } = useQuery({
     queryKey:  ['candidate', candidateId],
     queryFn:   () => getCandidate(candidateId),
     staleTime: 60_000,
-    retry:     1,
+    retry:     0,
   })
 
   useEffect(() => {
@@ -131,12 +131,12 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
         {isError ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
             <p className="text-sm font-medium text-red-500">Não foi possível carregar o candidato</p>
-            <p className="text-xs text-gray-400">O servidor demorou para responder. Tente novamente.</p>
+            <p className="text-xs text-gray-400">Verifique sua conexão e tente novamente.</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => refetch()}
               className="btn-secondary text-xs mt-1"
             >
-              Recarregar página
+              Tentar novamente
             </button>
           </div>
         ) : isLoading || !c ? (

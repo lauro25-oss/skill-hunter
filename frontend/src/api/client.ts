@@ -103,11 +103,16 @@ export const getCandidate = (id: string) =>
 export const updateCandidate = (id: string, data: Partial<CandidateOut>) =>
   api.patch<CandidateOut>(`/candidates/${id}`, data).then(r => r.data)
 
+export interface UploadResult {
+  criados: CandidateOut[]
+  erros: { arquivo: string; erro: string }[]
+}
+
 export const uploadCurriculos = (files: File[], vagaOrigem?: string) => {
   const form = new FormData()
   files.forEach(f => form.append('files', f))
   if (vagaOrigem) form.append('vaga_origem', vagaOrigem)
-  return api.post<CandidateOut[]>('/candidates/upload', form, {
+  return api.post<UploadResult>('/candidates/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(r => r.data)
 }

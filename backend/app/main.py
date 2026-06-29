@@ -36,9 +36,14 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["300/minute"])
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(text(
-            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS arquivo_s3_key VARCHAR(512)"
-        ))
+        # Colunas adicionadas após a criação inicial via create_all (idempotente)
+        for stmt in [
+            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS arquivo_base64 TEXT",
+            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS experiencias JSONB DEFAULT '[]'",
+            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS anonimizado BOOLEAN NOT NULL DEFAULT false",
+            "ALTER TABLE candidates ADD COLUMN IF NOT EXISTS arquivo_s3_key VARCHAR(512)",
+        ]:
+            await conn.execute(text(stmt))
 
     try:
         await ensure_index()
