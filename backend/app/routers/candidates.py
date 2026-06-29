@@ -209,11 +209,11 @@ async def get_cv_url(
 ):
     c = await _get_or_404(candidate_id, db)
 
-    # S3/R2: redireciona para URL assinada temporária
+    # S3/R2: retorna URL assinada como JSON (window.open não tem restrição CORS)
     if c.arquivo_s3_key:
         try:
             url = await storage.generate_presigned_url(c.arquivo_s3_key)
-            return RedirectResponse(url)
+            return {"url": url}
         except Exception:
             pass
 
