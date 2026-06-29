@@ -94,7 +94,7 @@ class SearchQuery(BaseModel):
     aprovado_cliente_filter: Optional[str] = None  # 'aprovado' | 'reprovado' | 'pendente'
     order_by: str = Field("criado_em", description="criado_em | score | nome | anos_experiencia")
     page: int = Field(1, ge=1)
-    per_page: int = Field(20, ge=1, le=500)
+    per_page: int = Field(20, ge=1, le=5000)
 
 
 class SearchResult(BaseModel):
