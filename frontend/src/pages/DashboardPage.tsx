@@ -4,7 +4,8 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts'
-import { Users, TrendingUp, Star, CheckCircle } from 'lucide-react'
+import { Users, TrendingUp, Star, CheckCircle, ArrowLeft } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 const STATUS_COLORS: Record<string, string> = {
   'Novo':        '#d1d5db',
@@ -18,6 +19,7 @@ const STATUS_COLORS: Record<string, string> = {
 const PIE_COLORS = ['#10b981', '#f87171', '#fbbf24']
 
 export default function DashboardPage() {
+  const navigate = useNavigate()
   const { data: s, isLoading } = useQuery({
     queryKey: ['stats'],
     queryFn:  getStats,
@@ -51,6 +53,15 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 p-6 space-y-6">
+
+      {/* Botão voltar */}
+      <button
+        onClick={() => navigate('/')}
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
+      >
+        <ArrowLeft size={16} />
+        Voltar para candidatos
+      </button>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
