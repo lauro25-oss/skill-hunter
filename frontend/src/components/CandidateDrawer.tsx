@@ -29,8 +29,10 @@ export default function CandidateDrawer({ candidateId, onClose }: Props) {
   const [loadingCv, setLoadingCv] = useState(false)
 
   const { data: c, isLoading } = useQuery({
-    queryKey: ['candidate', candidateId],
-    queryFn:  () => getCandidate(candidateId),
+    queryKey:  ['candidate', candidateId],
+    queryFn:   () => getCandidate(candidateId),
+    staleTime: 60_000,
+    retry:     1,
   })
 
   useEffect(() => {
