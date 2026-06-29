@@ -14,7 +14,6 @@ from app.models.candidate import Candidate, CandidateStatus
 from app.schemas.candidate import CandidateOut, CandidateUpdate
 from app.services import parser, storage
 from app.services.score import calcular_score
-from app.services.email import enviar_email_novo_candidato, enviar_email_status_alterado
 from app.auth import get_current_user
 
 router = APIRouter(
@@ -118,11 +117,6 @@ async def upload_curriculos(
             await db.commit()
             await db.refresh(candidate)
             criados.append(CandidateOut.model_validate(candidate))
-
-            try:
-                await enviar_email_novo_candidato(candidate.nome, file.filename, vaga_origem)
-            except Exception:
-                pass
 
         except Exception as exc:
             await db.rollback()
@@ -269,19 +263,11 @@ async def update_candidate(
 ):
     c = await _get_or_404(candidate_id, db)
     dados = payload.model_dump(exclude_unset=True)
-    status_anterior = c.status
 
     for field, value in dados.items():
         setattr(c, field, value)
     await db.commit()
     await db.refresh(c)
-
-    novo_status = dados.get("status")
-    if novo_status and novo_status != status_anterior:
-        try:
-            await enviar_email_status_alterado(c.nome, str(status_anterior), novo_status)
-        except Exception:
-            pass
 
     return CandidateOut.model_validate(c)
 
